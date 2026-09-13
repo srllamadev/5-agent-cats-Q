@@ -53,8 +53,9 @@ export const TOKEN_COSTS = {
     'claude-opus-4-5':           { input: 0.000015,  output: 0.000075  },
   },
   deepseek: {
-    'deepseek-coder':            { input: 0.00000014, output: 0.00000028 },
-    'deepseek-chat':             { input: 0.00000014, output: 0.00000028 },
+    'deepseek-chat':   { input: 0.00000027, output: 0.00000110 }, // DeepSeek V3 (más rápido, mejor calidad)
+    'deepseek-coder':  { input: 0.00000014, output: 0.00000028 },
+    'deepseek-reasoner': { input: 0.00000055, output: 0.00000219 }, // DeepSeek R1
   },
   openai: {
     'gpt-4o':                    { input: 0.0000025,  output: 0.00001   },

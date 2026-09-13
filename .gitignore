@@ -1,7 +1,26 @@
+# Secretos — NUNCA al repo
 .env
+js/env.js
+
+# Python
 __pycache__/
 *.pyc
-output/*.json
-!output/.gitkeep
+*.pyo
 .venv/
 venv/
+output/*.json
+!output/.gitkeep
+
+# Node
+node_modules/
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.suo
+*.user

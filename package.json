@@ -1,0 +1,12 @@
+{
+  "name": "auditai-smart-contract-audit",
+  "version": "1.0.0",
+  "description": "Equipo de Auditoría Multi-Agente para Smart Contracts — Avalanche",
+  "scripts": {
+    "dev": "npx serve -l 3000",
+    "start": "npx serve -l 3000"
+  },
+  "devDependencies": {
+    "serve": "^14.2.3"
+  }
+}

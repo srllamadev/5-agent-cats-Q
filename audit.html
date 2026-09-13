@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AuditAI — Auditoría en Progreso</title>
+  <meta name="description" content="Pipeline de auditoría multi-agente ejecutándose. Monitoreo en tiempo real de los 5 agentes.">
+  <link rel="stylesheet" href="styles/base.css">
+  <link rel="stylesheet" href="styles/components.css">
+  <style>
+    .audit-layout {
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: var(--sp-6);
+      padding: var(--sp-8) var(--sp-6);
+      min-height: 100vh;
+      padding-top: calc(var(--sp-8) + 56px);
+      max-width: 1280px;
+      margin: 0 auto;
+    }
+
+    /* ── Top bar ─────────────────────────────────────────────── */
+    .audit-topbar {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: var(--z-raised);
+      padding: var(--sp-3) var(--sp-6);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(7,8,13,0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .audit-topbar-left {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-4);
+    }
+
+    .audit-logo {
+      font-size: 1rem;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      gap: var(--sp-2);
+    }
+
+    .audit-status-chip {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-2);
+      padding: 4px 12px;
+      border-radius: var(--r-full);
+      font-size: 0.8125rem;
+      font-weight: 600;
+      background: rgba(99,102,241,0.15);
+      color: var(--accent-primary);
+      border: 1px solid rgba(99,102,241,0.3);
+    }
+
+    .audit-status-chip .live-dot {
+      width: 6px; height: 6px;
+      background: var(--accent-secondary);
+      border-radius: 50%;
+      animation: pulse-ring 1.5s ease-in-out infinite;
+    }
+
+    /* ── Left column ─────────────────────────────────────────── */
+    .agents-column {}
+
+    .agents-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--sp-5);
+    }
+
+    .agents-title {
+      font-size: 1.125rem;
+      font-weight: 700;
+    }
+
+    .agents-grid {
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-4);
+    }
+
+    /* ── Activity Feed ───────────────────────────────────────── */
+    .activity-feed {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r-xl);
+      padding: var(--sp-5);
+    }
+
+    .activity-feed-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--sp-4);
+    }
+
+    .activity-feed-title {
+      font-size: 0.875rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+    }
+
+    .activity-feed-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-2);
+      max-height: 280px;
+      overflow-y: auto;
+    }
+
+    .activity-entry {
+      display: flex;
+      gap: var(--sp-2);
+      font-size: 0.8125rem;
+      animation: slide-up 0.3s ease;
+    }
+
+    .activity-time {
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      font-size: 0.6875rem;
+      flex-shrink: 0;
+      padding-top: 2px;
+    }
+
+    .activity-msg {
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+
+    .activity-msg.success { color: var(--risk-bajo); }
+    .activity-msg.error   { color: var(--sev-critical); }
+    .activity-msg.warn    { color: var(--sev-medium); }
+
+    /* ── Right column ────────────────────────────────────────── */
+    .sidebar-column {
+      display: flex;
+      flex-direction: column;
+      gap: var(--sp-4);
+    }
+
+    /* ── Budget widget ───────────────────────────────────────── */
+    .budget-widget {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r-xl);
+      padding: var(--sp-5);
+    }
+
+    .budget-widget-title {
+      font-size: 0.875rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      margin-bottom: var(--sp-4);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .budget-total {
+      font-size: 1.5rem;
+      font-weight: 900;
+      font-family: var(--font-mono);
+      color: var(--text-primary);
+      margin-bottom: var(--sp-2);
+    }
+
+    .budget-bar-overall {
+      height: 8px;
+      background: var(--bg-overlay);
+      border-radius: var(--r-full);
+      overflow: hidden;
+      margin-bottom: var(--sp-4);
+    }
+
+    .budget-bar-fill {
+      height: 100%;
+      border-radius: var(--r-full);
+      background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+      transition: width 0.5s ease;
+      width: 0%;
+    }
+
+    .budget-bar-fill.warning { background: linear-gradient(90deg, var(--sev-medium), var(--sev-high)); }
+    .budget-bar-fill.danger  { background: linear-gradient(90deg, var(--sev-high), var(--sev-critical)); }
+
+    /* ── Ledger live ─────────────────────────────────────────── */
+    .live-ledger {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r-xl);
+      padding: var(--sp-5);
+    }
+
+    .live-ledger-title {
+      font-size: 0.875rem;
+      font-weight: 700;
+      color: var(--text-secondary);
+      margin-bottom: var(--sp-3);
+    }
+
+    /* ── Pipeline progress bar ───────────────────────────────── */
+    .pipeline-progress {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r-xl);
+      padding: var(--sp-5);
+    }
+
+    .pipeline-step {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-3);
+      padding: var(--sp-2) 0;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .pipeline-step:last-child { border-bottom: none; }
+
+    .pipeline-step-icon {
+      font-size: 1.25rem;
+      width: 2rem;
+      text-align: center;
+      flex-shrink: 0;
+    }
+
+    .pipeline-step-label {
+      flex: 1;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    .pipeline-step-status {
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+
+    .pipeline-step-status.waiting  { color: var(--text-muted); }
+    .pipeline-step-status.running  { color: var(--accent-primary); }
+    .pipeline-step-status.done     { color: var(--risk-bajo); }
+    .pipeline-step-status.failed   { color: var(--sev-critical); }
+    .pipeline-step-status.partial  { color: var(--sev-medium); }
+
+    /* ── Complete banner ─────────────────────────────────────── */
+    .complete-banner {
+      display: none;
+      background: linear-gradient(135deg, rgba(34,197,94,0.15), rgba(99,102,241,0.10));
+      border: 1px solid rgba(34,197,94,0.4);
+      border-radius: var(--r-xl);
+      padding: var(--sp-6);
+      text-align: center;
+      animation: fadeInScale 0.5s ease;
+    }
+
+    .complete-banner.show { display: block; }
+
+    .complete-banner-title {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: var(--risk-bajo);
+      margin-bottom: var(--sp-2);
+    }
+
+    .complete-banner-subtitle {
+      color: var(--text-secondary);
+      margin-bottom: var(--sp-5);
+    }
+
+    @media (max-width: 1024px) {
+      .audit-layout { grid-template-columns: 1fr; }
+      .sidebar-column { order: -1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-mesh"></div>
+
+  <!-- Top bar -->
+  <div class="audit-topbar">
+    <div class="audit-topbar-left">
+      <div class="audit-logo">🛡️ <span class="gradient-text">AuditAI</span></div>
+      <div class="audit-status-chip">
+        <span class="live-dot"></span>
+        <span id="topbar-status">Iniciando pipeline...</span>
+      </div>
+    </div>
+    <div class="flex gap-3 items-center">
+      <span class="text-muted text-sm" id="audit-id-top"></span>
+      <button class="btn btn-ghost btn-sm" onclick="window.location.href='index.html'">← Nueva auditoría</button>
+    </div>
+  </div>
+
+  <!-- Main layout -->
+  <div class="audit-layout">
+
+    <!-- Left: Agents + Activity Feed -->
+    <div class="agents-column">
+
+      <!-- Circuit Breaker Banner -->
+      <div class="circuit-breaker-banner" id="circuit-breaker-banner">
+        <span class="cb-icon">⚡</span>
+        <div>
+          <div class="cb-title">Circuit Breaker Activado</div>
+          <div class="cb-desc" id="cb-desc">Presupuesto de tokens agotado. El reporte se generará con los hallazgos disponibles.</div>
+        </div>
+      </div>
+
+      <div class="agents-header">
+        <h2 class="agents-title">🤖 Agentes en Ejecución</h2>
+        <span class="badge badge-neutral text-xs" id="step-counter">1 / 5</span>
+      </div>
+
+      <div class="agents-grid" id="agents-grid">
+        <!-- Agent 1: Scanner -->
+        <div class="agent-card waiting" id="agent-scanner">
+          <div class="agent-avatar agent-avatar-1" id="avatar-scanner">🔍</div>
+          <div class="agent-info">
+            <div class="agent-name">Agente 1 — Escáner</div>
+            <div class="agent-role">Análisis AST · Detección de patrones · Lectura única del contrato</div>
+            <div class="agent-status-text" id="status-scanner">En espera...</div>
+            <div class="token-bar">
+              <div class="token-bar-header">
+                <span class="token-bar-label">Tokens usados</span>
+                <span class="token-bar-value" id="tokens-scanner">0 / 600</span>
+              </div>
+              <div class="token-bar-track">
+                <div class="token-bar-fill" id="bar-scanner" style="width:0%"></div>
+              </div>
+            </div>
+          </div>
+          <span class="agent-status-dot"></span>
+        </div>
+
+        <!-- Agent 2: Economist -->
+        <div class="agent-card waiting" id="agent-economist">
+          <div class="agent-avatar agent-avatar-2" id="avatar-economist">💰</div>
+          <div class="agent-info">
+            <div class="agent-name">Agente 2 — Economista</div>
+            <div class="agent-role">Riesgos económicos · payable/transfer/swap · TVL</div>
+            <div class="agent-status-text" id="status-economist">En espera...</div>
+            <div class="token-bar">
+              <div class="token-bar-header">
+                <span class="token-bar-label">Tokens usados</span>
+                <span class="token-bar-value" id="tokens-economist">0 / 800</span>
+              </div>
+              <div class="token-bar-track">
+                <div class="token-bar-fill" id="bar-economist" style="width:0%"></div>
+              </div>
+            </div>
+          </div>
+          <span class="agent-status-dot"></span>
+        </div>
+
+        <!-- Agent 3: Compliance -->
+        <div class="agent-card waiting" id="agent-compliance">
+          <div class="agent-avatar agent-avatar-3" id="avatar-compliance">📋</div>
+          <div class="agent-info">
+            <div class="agent-name">Agente 3 — Cumplimiento</div>
+            <div class="agent-role">ISO 27001 · NIST CSF · Constructor + Modifiers</div>
+            <div class="agent-status-text" id="status-compliance">En espera...</div>
+            <div class="token-bar">
+              <div class="token-bar-header">
+                <span class="token-bar-label">Tokens usados</span>
+                <span class="token-bar-value" id="tokens-compliance">0 / 700</span>
+              </div>
+              <div class="token-bar-track">
+                <div class="token-bar-fill" id="bar-compliance" style="width:0%"></div>
+              </div>
+            </div>
+          </div>
+          <span class="agent-status-dot"></span>
+        </div>
+
+        <!-- Agent 4: Hacker -->
+        <div class="agent-card waiting" id="agent-hacker">
+          <div class="agent-avatar agent-avatar-4" id="avatar-hacker">🎯</div>
+          <div class="agent-info">
+            <div class="agent-name">Agente 4 — Hacker</div>
+            <div class="agent-role">PoC Exploits · Max 2 rondas · Solo fragmentos sospechosos</div>
+            <div class="agent-status-text" id="status-hacker">En espera...</div>
+            <div class="token-bar">
+              <div class="token-bar-header">
+                <span class="token-bar-label">Tokens usados</span>
+                <span class="token-bar-value" id="tokens-hacker">0 / 1200</span>
+              </div>
+              <div class="token-bar-track">
+                <div class="token-bar-fill" id="bar-hacker" style="width:0%"></div>
+              </div>
+            </div>
+          </div>
+          <span class="agent-status-dot"></span>
+        </div>
+
+        <!-- Agent 5: Manager -->
+        <div class="agent-card waiting" id="agent-manager">
+          <div class="agent-avatar agent-avatar-5" id="avatar-manager">🧠</div>
+          <div class="agent-info">
+            <div class="agent-name">Agente 5 — Manager (Orquestador)</div>
+            <div class="agent-role">Síntesis · ISO 27004 Score · Resolución de conflictos · Informe ejecutivo</div>
+            <div class="agent-status-text" id="status-manager">En espera...</div>
+            <div class="token-bar">
+              <div class="token-bar-header">
+                <span class="token-bar-label">Tokens usados</span>
+                <span class="token-bar-value" id="tokens-manager">0 / 1500</span>
+              </div>
+              <div class="token-bar-track">
+                <div class="token-bar-fill" id="bar-manager" style="width:0%"></div>
+              </div>
+            </div>
+          </div>
+          <span class="agent-status-dot"></span>
+        </div>
+      </div>
+
+      <!-- Activity Feed -->
+      <div class="activity-feed" style="margin-top:var(--sp-6)">
+        <div class="activity-feed-header">
+          <span class="activity-feed-title">📡 Log en tiempo real</span>
+          <button class="btn btn-ghost btn-sm" onclick="clearLog()">Limpiar</button>
+        </div>
+        <div class="activity-feed-list" id="activity-list">
+          <div class="activity-entry">
+            <span class="activity-time">--:--:--</span>
+            <span class="activity-msg">Pipeline iniciando...</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Complete Banner -->
+      <div class="complete-banner" id="complete-banner" style="margin-top:var(--sp-6)">
+        <div class="complete-banner-title">✅ Auditoría Completada</div>
+        <p class="complete-banner-subtitle">El informe ha sido generado. Redirigiendo al dashboard...</p>
+        <div class="flex gap-3 justify-center">
+          <button class="btn btn-primary btn-lg" onclick="window.location.href='dashboard.html'">
+            Ver Dashboard →
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right sidebar -->
+    <div class="sidebar-column">
+
+      <!-- Pipeline Steps -->
+      <div class="pipeline-progress">
+        <div style="font-size:0.875rem;font-weight:700;color:var(--text-secondary);margin-bottom:var(--sp-3)">⚡ Pipeline</div>
+        <div class="pipeline-step">
+          <span class="pipeline-step-icon">🔍</span>
+          <span class="pipeline-step-label">Escáner</span>
+          <span class="pipeline-step-status waiting" id="step-scanner">Pendiente</span>
+        </div>
+        <div class="pipeline-step">
+          <span class="pipeline-step-icon">💰</span>
+          <span class="pipeline-step-label">Economista</span>
+          <span class="pipeline-step-status waiting" id="step-economist">Pendiente</span>
+        </div>
+        <div class="pipeline-step">
+          <span class="pipeline-step-icon">📋</span>
+          <span class="pipeline-step-label">Cumplimiento</span>
+          <span class="pipeline-step-status waiting" id="step-compliance">Pendiente</span>
+        </div>
+        <div class="pipeline-step">
+          <span class="pipeline-step-icon">🎯</span>
+          <span class="pipeline-step-label">Hacker</span>
+          <span class="pipeline-step-status waiting" id="step-hacker">Pendiente</span>
+        </div>
+        <div class="pipeline-step">
+          <span class="pipeline-step-icon">🧠</span>
+          <span class="pipeline-step-label">Manager</span>
+          <span class="pipeline-step-status waiting" id="step-manager">Pendiente</span>
+        </div>
+        <div class="pipeline-step">
+          <span class="pipeline-step-icon">📡</span>
+          <span class="pipeline-step-label">IPFS Upload</span>
+          <span class="pipeline-step-status waiting" id="step-ipfs">Pendiente</span>
+        </div>
+        <div class="pipeline-step">
+          <span class="pipeline-step-icon">⛓️</span>
+          <span class="pipeline-step-label">Blockchain</span>
+          <span class="pipeline-step-status waiting" id="step-chain">Pendiente</span>
+        </div>
+      </div>
+
+      <!-- Budget Widget -->
+      <div class="budget-widget">
+        <div class="budget-widget-title">
+          💸 Presupuesto
+          <span class="text-muted text-sm" id="budget-cap-label">/ $0.10</span>
+        </div>
+        <div class="budget-total" id="budget-spent">$0.000000</div>
+        <div class="budget-bar-overall">
+          <div class="budget-bar-fill" id="budget-bar" style="width:0%"></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-2);">
+          <div class="stat">
+            <div class="stat-label" style="font-size:0.625rem">Tokens In</div>
+            <div class="stat-value" style="font-size:1.125rem" id="total-tokens-in">0</div>
+          </div>
+          <div class="stat">
+            <div class="stat-label" style="font-size:0.625rem">Tokens Out</div>
+            <div class="stat-value" style="font-size:1.125rem" id="total-tokens-out">0</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live Ledger -->
+      <div class="live-ledger">
+        <div class="live-ledger-title">📒 Audit Ledger</div>
+        <table class="ledger-table" style="font-size:0.75rem">
+          <thead>
+            <tr>
+              <th>Agente</th>
+              <th>In</th>
+              <th>Out</th>
+              <th>USD</th>
+            </tr>
+          </thead>
+          <tbody id="live-ledger-tbody">
+            <tr><td colspan="4" style="color:var(--text-muted);text-align:center;padding:1rem">Esperando agentes...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Contract info -->
+      <div class="glass-card">
+        <div style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:var(--sp-3)">Contrato Auditado</div>
+        <div style="font-size:0.875rem;color:var(--text-secondary);margin-bottom:var(--sp-2)" id="contract-info-name">—</div>
+        <div style="font-family:var(--font-mono);font-size:0.75rem;color:var(--text-muted);word-break:break-all" id="contract-info-address">—</div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { runAuditPipeline, onAuditEvent } from './js/orchestrator.js';
+    import { getLedger, loadSettings } from './js/config.js';
+
+    // ── Load data from previous page ──────────────────────────
+    const source = sessionStorage.getItem('audit_source');
+    const meta   = JSON.parse(sessionStorage.getItem('audit_meta') || '{}');
+
+    if (!source || !meta.auditId) {
+      window.location.href = 'index.html';
+    }
+
+    const settings = loadSettings();
+    document.getElementById('audit-id-top').textContent = meta.auditId || '';
+    document.getElementById('contract-info-name').textContent    = meta.contractName    || 'N/A';
+    document.getElementById('contract-info-address').textContent = meta.contractAddress || 'N/A';
+    document.getElementById('budget-cap-label').textContent = `/ $${(settings.maxBudget || 0.10).toFixed(2)}`;
+
+    const MAX_TOKENS = { scanner: 600, economist: 800, compliance: 700, hacker: 1200, manager: 1500 };
+    let doneCount = 0;
+
+    // ── Event listeners ───────────────────────────────────────
+    onAuditEvent('pipeline:start', () => {
+      setTopbarStatus('Pipeline activo — Agentes ejecutando...');
+      addLog('Pipeline iniciado', 'default');
+    });
+
+    onAuditEvent('agent:start', ({ agent }) => {
+      setAgentState(agent, 'running');
+      setStepStatus(agent, 'running', '⏳ Ejecutando');
+      addLog(`→ ${agentLabel(agent)} iniciado`, 'default');
+    });
+
+    onAuditEvent('agent:progress', ({ agent, status }) => {
+      setText(`status-${agent}`, status);
+      addLog(`  [${agentLabel(agent)}] ${status}`, 'default');
+    });
+
+    onAuditEvent('agent:done', ({ agent, costUSD, rounds }) => {
+      doneCount++;
+      setAgentState(agent, 'done');
+      setStepStatus(agent, 'done', '✓ Listo');
+      setText(`status-${agent}`, rounds ? `Completado (${rounds} rondas)` : 'Completado');
+      addLog(`✓ ${agentLabel(agent)} completado${costUSD ? ` — $${costUSD.toFixed(6)}` : ''}`, 'success');
+      updateBudgetUI();
+      updateLedgerUI();
+      setText('step-counter', `${doneCount} / 5`);
+    });
+
+    onAuditEvent('agent:error', ({ agent, error }) => {
+      setAgentState(agent, 'failed');
+      setStepStatus(agent, 'failed', '✕ Error');
+      setText(`status-${agent}`, `Error: ${error}`);
+      addLog(`✕ ${agentLabel(agent)} falló: ${error}`, 'error');
+    });
+
+    onAuditEvent('circuit:breaker', ({ reason }) => {
+      document.getElementById('circuit-breaker-banner').classList.add('active');
+      document.getElementById('cb-desc').textContent = reason;
+      addLog(`⚡ Circuit Breaker: ${reason}`, 'warn');
+      setTopbarStatus('⚡ Circuit Breaker — Reporte parcial');
+    });
+
+    onAuditEvent('pipeline:ipfs', ({ status, error }) => {
+      setStepStatus('ipfs', error ? 'failed' : 'done', error ? '✕' : '✓');
+      addLog(`📡 IPFS: ${status}`, error ? 'error' : 'success');
+    });
+
+    onAuditEvent('pipeline:chain', ({ status, error }) => {
+      setStepStatus('chain', error ? 'failed' : 'done', error ? '✕' : '✓');
+      addLog(`⛓️ Chain: ${status}`, error ? 'error' : 'success');
+    });
+
+    onAuditEvent('pipeline:complete', () => {
+      setTopbarStatus('✅ Auditoría completada');
+      addLog('✅ Pipeline completado — Generando dashboard...', 'success');
+      document.getElementById('complete-banner').classList.add('show');
+      // Auto-redirect after 3 seconds
+      setTimeout(() => { window.location.href = 'dashboard.html'; }, 3000);
+    });
+
+    // ── Start pipeline ────────────────────────────────────────
+    runAuditPipeline(source, meta).catch(err => {
+      addLog(`Pipeline error crítico: ${err.message}`, 'error');
+      setTopbarStatus('❌ Error en pipeline');
+    });
+
+    // ── UI helpers ────────────────────────────────────────────
+    function setAgentState(agent, state) {
+      const card   = document.getElementById(`agent-${agent}`);
+      const avatar = document.getElementById(`avatar-${agent}`);
+      if (card) {
+        card.className = `agent-card ${state}`;
+      }
+      if (avatar && state === 'running') {
+        avatar.classList.add('agent-avatar--running');
+      } else if (avatar) {
+        avatar.classList.remove('agent-avatar--running');
+      }
+    }
+
+    function setStepStatus(step, state, label) {
+      const el = document.getElementById(`step-${step}`);
+      if (el) { el.className = `pipeline-step-status ${state}`; el.textContent = label; }
+    }
+
+    function updateBudgetUI() {
+      const ledger  = getLedger();
+      if (!ledger) return;
+      const spent   = ledger.totalCostUSD || 0;
+      const cap     = settings.maxBudget  || 0.10;
+      const pct     = Math.min((spent / cap) * 100, 100);
+
+      setText('budget-spent', `$${spent.toFixed(6)}`);
+
+      const bar = document.getElementById('budget-bar');
+      if (bar) {
+        bar.style.width = pct + '%';
+        bar.className   = `budget-bar-fill ${pct >= 90 ? 'danger' : pct >= 70 ? 'warning' : ''}`;
+      }
+
+      // Token totals
+      let totalIn = 0, totalOut = 0;
+      ledger.entries.forEach(e => { totalIn += e.tokensIn || 0; totalOut += e.tokensOut || 0; });
+      setText('total-tokens-in',  totalIn);
+      setText('total-tokens-out', totalOut);
+
+      // Per-agent token bars
+      ledger.entries.forEach(e => {
+        const max  = MAX_TOKENS[e.agent] || 1000;
+        const pctA = Math.min(((e.tokensOut || 0) / max) * 100, 100);
+        const bar  = document.getElementById(`bar-${e.agent}`);
+        const lbl  = document.getElementById(`tokens-${e.agent}`);
+        if (bar) { bar.style.width = pctA + '%'; if (pctA >= 90) bar.classList.add('over-budget'); }
+        if (lbl) lbl.textContent = `${e.tokensOut} / ${max}`;
+      });
+    }
+
+    function updateLedgerUI() {
+      const ledger = getLedger();
+      if (!ledger?.entries?.length) return;
+      const tbody = document.getElementById('live-ledger-tbody');
+      tbody.innerHTML = ledger.entries.map(e => `
+        <tr>
+          <td>${e.agent}</td>
+          <td>${e.tokensIn ?? 0}</td>
+          <td>${e.tokensOut ?? 0}</td>
+          <td>$${(e.costUSD || 0).toFixed(5)}</td>
+        </tr>`).join('');
+    }
+
+    function addLog(msg, type) {
+      const list = document.getElementById('activity-list');
+      const now  = new Date().toLocaleTimeString('es-ES');
+      const entry = document.createElement('div');
+      entry.className = 'activity-entry';
+      entry.innerHTML = `<span class="activity-time">${now}</span><span class="activity-msg ${type || ''}">${escapeHTML(msg)}</span>`;
+      list.appendChild(entry);
+      list.scrollTop = list.scrollHeight;
+    }
+
+    function setTopbarStatus(msg) { setText('topbar-status', msg); }
+
+    function setText(id, val) {
+      const el = document.getElementById(id);
+      if (el) el.textContent = val;
+    }
+
+    function escapeHTML(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function agentLabel(agent) {
+      return { scanner:'Escáner', economist:'Economista', compliance:'Cumplimiento', hacker:'Hacker', manager:'Manager' }[agent] || agent;
+    }
+
+    window.clearLog = () => {
+      document.getElementById('activity-list').innerHTML = '';
+    };
+  </script>
+</body>
+</html>

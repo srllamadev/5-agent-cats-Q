@@ -6,7 +6,7 @@
 
 import { getApiKey, getActiveModel, calcCostUSD, getLedger, MAX_AUDIT_BUDGET_USD } from './config.js';
 
-// ── Budget Exceeded Error    ─────────────────────────────────────
+// ── Budget Exceeded Error ─────────────────────────────────────
 export class BudgetExceededError extends Error {
   constructor(spent, cap) {
     super(`Budget exceeded: $${spent.toFixed(4)} > $${cap}`);

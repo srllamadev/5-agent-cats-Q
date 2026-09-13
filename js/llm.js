@@ -6,7 +6,7 @@
 
 import { getApiKey, getActiveModel, calcCostUSD, getLedger, MAX_AUDIT_BUDGET_USD } from './config.js';
 
-// ── Budget Exceeded Error ─────────────────────────────────────
+// ── Budget Exceeded Error  ─────────────────────────────────────
 export class BudgetExceededError extends Error {
   constructor(spent, cap) {
     super(`Budget exceeded: $${spent.toFixed(4)} > $${cap}`);
@@ -47,8 +47,8 @@ export async function callLLM(agentName, systemPrompt, userContent, maxTokens, s
   }
 
   const provider = settings.provider || 'claude';
-  const model    = getActiveModel(settings);
-  const apiKey   = getApiKey(provider);
+  const model = getActiveModel(settings);
+  const apiKey = getApiKey(provider);
 
   if (!apiKey) {
     throw new Error(`No API key configured for provider "${provider}". Please add it in Settings.`);
@@ -56,9 +56,9 @@ export async function callLLM(agentName, systemPrompt, userContent, maxTokens, s
 
   let result;
   switch (provider) {
-    case 'claude':   result = await callClaude(systemPrompt, userContent, maxTokens, model, apiKey, onProgress); break;
+    case 'claude': result = await callClaude(systemPrompt, userContent, maxTokens, model, apiKey, onProgress); break;
     case 'deepseek': result = await callDeepSeek(systemPrompt, userContent, maxTokens, model, apiKey); break;
-    case 'openai':   result = await callOpenAI(systemPrompt, userContent, maxTokens, model, apiKey); break;
+    case 'openai': result = await callOpenAI(systemPrompt, userContent, maxTokens, model, apiKey); break;
     default: throw new Error(`Unknown provider: ${provider}`);
   }
 
@@ -78,9 +78,9 @@ async function callClaude(system, user, maxTokens, model, apiKey, onProgress) {
   const res = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
-      'Content-Type':         'application/json',
-      'x-api-key':            apiKey,
-      'anthropic-version':    '2023-06-01',
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
       'anthropic-dangerous-direct-browser-access': 'true',
     },
     body: JSON.stringify(body),
@@ -92,8 +92,8 @@ async function callClaude(system, user, maxTokens, model, apiKey, onProgress) {
   }
 
   const data = await res.json();
-  const content   = data.content?.[0]?.text ?? '';
-  const tokensIn  = data.usage?.input_tokens  ?? 0;
+  const content = data.content?.[0]?.text ?? '';
+  const tokensIn = data.usage?.input_tokens ?? 0;
   const tokensOut = data.usage?.output_tokens ?? 0;
   return { content, tokensIn, tokensOut };
 }
@@ -105,7 +105,7 @@ async function callDeepSeek(system, user, maxTokens, model, apiKey) {
     max_tokens: maxTokens,
     messages: [
       { role: 'system', content: system },
-      { role: 'user',   content: user },
+      { role: 'user', content: user },
     ],
   };
 
@@ -124,8 +124,8 @@ async function callDeepSeek(system, user, maxTokens, model, apiKey) {
   }
 
   const data = await res.json();
-  const content   = data.choices?.[0]?.message?.content ?? '';
-  const tokensIn  = data.usage?.prompt_tokens     ?? 0;
+  const content = data.choices?.[0]?.message?.content ?? '';
+  const tokensIn = data.usage?.prompt_tokens ?? 0;
   const tokensOut = data.usage?.completion_tokens ?? 0;
   return { content, tokensIn, tokensOut };
 }
@@ -137,7 +137,7 @@ async function callOpenAI(system, user, maxTokens, model, apiKey) {
     max_tokens: maxTokens,
     messages: [
       { role: 'system', content: system },
-      { role: 'user',   content: user },
+      { role: 'user', content: user },
     ],
   };
 
@@ -156,8 +156,8 @@ async function callOpenAI(system, user, maxTokens, model, apiKey) {
   }
 
   const data = await res.json();
-  const content   = data.choices?.[0]?.message?.content ?? '';
-  const tokensIn  = data.usage?.prompt_tokens     ?? 0;
+  const content = data.choices?.[0]?.message?.content ?? '';
+  const tokensIn = data.usage?.prompt_tokens ?? 0;
   const tokensOut = data.usage?.completion_tokens ?? 0;
   return { content, tokensIn, tokensOut };
 }

@@ -1,10 +1,15 @@
-# ============================================================
-#  .gitignore — AuditAI
-# ============================================================
-
 # Secretos — NUNCA al repo
 .env
 js/env.js
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+output/*.json
+!output/.gitkeep
 
 # Node
 node_modules/

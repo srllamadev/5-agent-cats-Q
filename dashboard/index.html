@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Auditoría Smart Contracts</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <header>
+        <h1>Equipo de Auditoría Multi-Agente</h1>
+        <p class="subtitle">Smart Contracts - Avalanche</p>
+    </header>
+
+    <main>
+        <section class="kpi-grid" id="kpiGrid"></section>
+
+        <section class="dashboard-section">
+            <h2>Matriz de Riesgo (ISO 31000)</h2>
+            <div class="chart-container">
+                <canvas id="riskMatrix" width="500" height="500"></canvas>
+            </div>
+        </section>
+
+        <section class="dashboard-section">
+            <h2>Cumplimiento NIST CSF</h2>
+            <div class="chart-container">
+                <canvas id="nistChart" width="400" height="400"></canvas>
+            </div>
+        </section>
+
+        <section class="dashboard-section">
+            <h2>Hallazgos</h2>
+            <div class="table-container">
+                <table id="findingsTable">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Título</th>
+                            <th>Severidad</th>
+                            <th>Prob.</th>
+                            <th>Impacto</th>
+                            <th>Riesgo</th>
+                            <th>PoC</th>
+                            <th>ISO 27001</th>
+                            <th>NIST CSF</th>
+                        </tr>
+                    </thead>
+                    <tbody id="findingsBody"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="dashboard-section">
+            <h2>Resumen Ejecutivo</h2>
+            <div id="executiveSummary" class="summary-box"></div>
+        </section>
+    </main>
+
+    <footer>
+        <p>Generado por Equipo de Auditoría Multi-Agente | ISO 27001 / NIST CSF / ISO 31000</p>
+    </footer>
+
+    <script src="dashboard.js"></script>
+</body>
+</html>

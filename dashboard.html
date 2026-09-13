@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AuditAI — Dashboard de Seguridad</title>
+  <meta name="description" content="Dashboard de auditoría de smart contracts. Security Score, Matriz de Riesgo ISO 31000, NIST CSF, hallazgos y liquidación on-chain en Avalanche.">
+  <link rel="stylesheet" href="styles/base.css">
+  <link rel="stylesheet" href="styles/components.css">
+  <link rel="stylesheet" href="styles/dashboard.css">
+  <style>
+    /* ── No-data message ─────────────────────────────────────── */
+    #no-data-msg {
+      display: none;
+      min-height: 100vh;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      gap: var(--sp-4);
+    }
+
+    /* ── Partial banner ──────────────────────────────────────── */
+    #partial-banner {
+      display: none;
+      background: linear-gradient(135deg, rgba(234,179,8,0.15), rgba(249,115,22,0.10));
+      border: 1px solid rgba(234,179,8,0.35);
+      border-radius: var(--r-lg);
+      padding: var(--sp-4) var(--sp-5);
+      margin-bottom: var(--sp-6);
+      align-items: center;
+      gap: var(--sp-3);
+    }
+    #partial-banner.active { display: flex; }
+
+    /* ── Score sidebar mini ──────────────────────────────────── */
+    .score-mini {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-3);
+      padding: var(--sp-4);
+      background: rgba(99,102,241,0.08);
+      border: 1px solid rgba(99,102,241,0.2);
+      border-radius: var(--r-lg);
+      margin-bottom: var(--sp-4);
+    }
+
+    .score-mini-number {
+      font-size: 2rem;
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      line-height: 1;
+    }
+
+    .score-mini-label {
+      font-size: 0.6875rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+    }
+
+    /* ── Sidebar mini counts ─────────────────────────────────── */
+    .mini-counts {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--sp-2);
+      margin-bottom: var(--sp-4);
+    }
+
+    .mini-count-cell {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--r-md);
+      padding: var(--sp-3);
+      text-align: center;
+    }
+
+    .mini-count-cell .count {
+      font-size: 1.375rem;
+      font-weight: 800;
+      line-height: 1;
+      margin-bottom: 2px;
+    }
+
+    .mini-count-cell .count-label {
+      font-size: 0.625rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+    }
+
+    .mini-count-cell.critico .count { color: var(--sev-critical); }
+    .mini-count-cell.alto    .count { color: var(--sev-high); }
+    .mini-count-cell.medio   .count { color: var(--sev-medium); }
+    .mini-count-cell.bajo    .count { color: var(--risk-bajo); }
+
+    /* ── Sections ────────────────────────────────────────────── */
+    .dash-section {
+      scroll-margin-top: 2rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-mesh"></div>
+
+  <!-- No-data fallback -->
+  <div id="no-data-msg">
+    <div style="font-size:3rem">🕳️</div>
+    <h2>No hay datos de auditoría</h2>
+    <p class="text-secondary">Ejecuta una auditoría primero para ver el dashboard.</p>
+    <a href="index.html" class="btn btn-primary btn-lg">← Ir al inicio</a>
+  </div>
+
+  <!-- Dashboard layout -->
+  <div class="dashboard-layout" id="dashboard-content">
+
+    <!-- Sidebar -->
+    <aside class="dashboard-sidebar">
+      <div class="sidebar-logo">
+        <span style="font-size:1.5rem">🛡️</span>
+        <span class="sidebar-logo-text">AuditAI</span>
+      </div>
+
+      <!-- Score mini -->
+      <div class="score-mini">
+        <div>
+          <div class="score-mini-number gradient-text" id="sidebar-score">—</div>
+          <div class="score-mini-label">Security Score</div>
+        </div>
+        <div style="flex:1"></div>
+        <svg width="40" height="40" viewBox="0 0 40 40">
+          <circle cx="20" cy="20" r="16" fill="none" stroke="var(--bg-overlay)" stroke-width="4"/>
+          <circle cx="20" cy="20" r="16" fill="none" stroke="var(--accent-primary)" stroke-width="4"
+                  stroke-linecap="round" stroke-dasharray="100" stroke-dashoffset="100"
+                  transform="rotate(-90 20 20)" style="transition:stroke-dashoffset 1.5s ease" id="mini-ring"/>
+        </svg>
+      </div>
+
+      <!-- Mini counts -->
+      <div class="mini-counts">
+        <div class="mini-count-cell critico">
+          <div class="count" id="side-critico">0</div>
+          <div class="count-label">Críticos</div>
+        </div>
+        <div class="mini-count-cell alto">
+          <div class="count" id="side-alto">0</div>
+          <div class="count-label">Altos</div>
+        </div>
+        <div class="mini-count-cell medio">
+          <div class="count" id="side-medio">0</div>
+          <div class="count-label">Medios</div>
+        </div>
+        <div class="mini-count-cell bajo">
+          <div class="count" id="side-bajo">0</div>
+          <div class="count-label">Bajos</div>
+        </div>
+      </div>
+
+      <span class="sidebar-section-label">Navegación</span>
+
+      <button class="sidebar-nav-item active" data-section="section-overview">
+        <span class="nav-icon">📊</span> Resumen
+      </button>
+      <button class="sidebar-nav-item" data-section="section-findings">
+        <span class="nav-icon">🔎</span> Hallazgos
+      </button>
+      <button class="sidebar-nav-item" data-section="section-risk-matrix">
+        <span class="nav-icon">🗺️</span> Matriz de Riesgo
+      </button>
+      <button class="sidebar-nav-item" data-section="section-nist">
+        <span class="nav-icon">📐</span> NIST CSF
+      </button>
+      <button class="sidebar-nav-item" data-section="section-compliance">
+        <span class="nav-icon">✅</span> Cumplimiento
+      </button>
+      <button class="sidebar-nav-item" data-section="section-ledger">
+        <span class="nav-icon">📒</span> Audit Ledger
+      </button>
+      <button class="sidebar-nav-item" data-section="section-chain">
+        <span class="nav-icon">⛓️</span> On-Chain
+      </button>
+
+      <div style="flex:1"></div>
+
+      <div class="divider"></div>
+
+      <button class="btn btn-primary w-full btn-sm" id="btn-new-audit">+ Nueva Auditoría</button>
+      <button class="btn btn-secondary w-full btn-sm mt-4" id="btn-download-report" style="margin-top:var(--sp-2)">⬇ Descargar Informe</button>
+      <button class="btn btn-ghost w-full btn-sm" id="btn-download-ledger" style="margin-top:var(--sp-2)">⬇ Descargar Ledger</button>
+    </aside>
+
+    <!-- Main content -->
+    <main class="dashboard-main" id="dashboard-main">
+
+      <!-- Header -->
+      <div class="dash-header">
+        <div>
+          <h1 style="font-size:1.5rem;font-weight:800;margin-bottom:var(--sp-2)">Informe de Auditoría de Seguridad</h1>
+          <div class="dash-header-meta">
+            <span class="audit-id-chip" id="audit-id-display">AUDIT-—</span>
+            <span class="text-muted text-sm" id="audit-date-display">—</span>
+            <span class="text-muted text-sm">•</span>
+            <span class="text-sm font-medium" id="contract-name">—</span>
+          </div>
+          <div style="margin-top:var(--sp-2);font-family:var(--font-mono);font-size:0.75rem;color:var(--text-muted)" id="contract-address">—</div>
+        </div>
+        <div class="flex gap-3 items-center flex-wrap">
+          <span class="badge badge-neutral text-xs" id="contract-network">—</span>
+          <span class="badge badge-neutral text-xs">Costo: <span id="total-cost-display">—</span></span>
+        </div>
+      </div>
+
+      <!-- Partial audit banner -->
+      <div id="partial-banner">
+        <span style="font-size:1.5rem">⚠️</span>
+        <div>
+          <div style="font-weight:700;color:var(--sev-medium)">Auditoría Parcial</div>
+          <div style="font-size:0.875rem;color:var(--text-secondary)">El circuit breaker se activó o un agente falló. Los resultados pueden ser incompletos.</div>
+        </div>
+      </div>
+
+      <!-- ────────────────── SECTION: Overview ─────────────────── -->
+      <section id="section-overview" class="dash-section">
+
+        <!-- KPI grid + Score ring -->
+        <div class="dashboard-grid" style="margin-bottom:var(--sp-6)">
+
+          <!-- Score ring -->
+          <div class="score-ring-container">
+            <div class="score-ring-wrapper">
+              <svg class="score-ring-svg" viewBox="0 0 160 160">
+                <circle class="score-ring-track" cx="80" cy="80" r="70"/>
+                <circle class="score-ring-fill" id="score-ring-fill" cx="80" cy="80" r="70"
+                        stroke-dasharray="440" stroke-dashoffset="440"/>
+              </svg>
+              <div class="score-ring-text">
+                <span class="score-number" id="score-number">—</span>
+                <span class="score-label">/ 100</span>
+              </div>
+            </div>
+            <div class="score-title">Security Score (ISO 27004)</div>
+            <div class="score-status" id="score-status">Calculando...</div>
+          </div>
+
+          <!-- Right side: KPIs + summary -->
+          <div style="display:flex;flex-direction:column;gap:var(--sp-4)">
+            <!-- KPI Grid -->
+            <div class="kpi-grid" style="grid-template-columns:repeat(2,1fr)">
+              <div class="kpi-card kpi-card--critical">
+                <div class="kpi-icon">🔴</div>
+                <div class="kpi-count" id="kpi-critico">0</div>
+                <div class="kpi-label">Críticos</div>
+              </div>
+              <div class="kpi-card kpi-card--high">
+                <div class="kpi-icon">🟠</div>
+                <div class="kpi-count" id="kpi-alto">0</div>
+                <div class="kpi-label">Altos</div>
+              </div>
+              <div class="kpi-card kpi-card--medium">
+                <div class="kpi-icon">🟡</div>
+                <div class="kpi-count" id="kpi-medio">0</div>
+                <div class="kpi-label">Medios</div>
+              </div>
+              <div class="kpi-card kpi-card--low">
+                <div class="kpi-icon">🟢</div>
+                <div class="kpi-count" id="kpi-bajo">0</div>
+                <div class="kpi-label">Bajos</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Executive Summary -->
+        <div class="exec-summary">
+          <div class="section-header" style="margin-bottom:var(--sp-4)">
+            <div>
+              <div class="section-title">📝 Resumen Ejecutivo</div>
+              <div class="section-subtitle">Evaluación en lenguaje claro (ISO 27002)</div>
+            </div>
+          </div>
+          <div class="exec-summary-text" id="exec-summary-text">Cargando resumen...</div>
+        </div>
+      </section>
+
+      <!-- ──────────────── SECTION: Findings ───────────────────── -->
+      <section id="section-findings" class="dash-section" style="margin-top:var(--sp-8)">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">🔎 Hallazgos de Seguridad</h2>
+            <div class="section-subtitle"><span id="findings-count">0</span> hallazgos encontrados</div>
+          </div>
+        </div>
+
+        <div class="findings-table-container">
+          <div class="findings-table-header">
+            <div class="findings-filters">
+              <button class="filter-chip active" data-filter="all">Todos</button>
+              <button class="filter-chip" data-filter="critico">Críticos</button>
+              <button class="filter-chip" data-filter="alto">Altos</button>
+              <button class="filter-chip" data-filter="medio">Medios</button>
+              <button class="filter-chip" data-filter="bajo">Bajos</button>
+              <button class="filter-chip" data-filter="informativo">Informativos</button>
+            </div>
+          </div>
+
+          <div style="overflow-x:auto">
+            <table class="findings-table">
+              <thead>
+                <tr>
+                  <th style="width:90px">ID</th>
+                  <th>Hallazgo</th>
+                  <th style="width:110px">Severidad</th>
+                  <th style="width:110px">NIST CSF</th>
+                  <th style="width:100px">ISO 27001</th>
+                  <th style="width:90px">P × I</th>
+                  <th style="width:130px">PoC</th>
+                </tr>
+              </thead>
+              <tbody id="findings-tbody">
+                <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:2rem">Cargando hallazgos...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─────────────── SECTION: Risk Matrix ─────────────────── -->
+      <section id="section-risk-matrix" class="dash-section" style="margin-top:var(--sp-8)">
+        <div class="dashboard-row" style="align-items:start">
+          <div class="risk-matrix-container">
+            <div class="section-header">
+              <div>
+                <h2 class="section-title">🗺️ Matriz de Riesgo</h2>
+                <div class="section-subtitle">ISO 31000 · Probabilidad × Impacto</div>
+              </div>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:var(--sp-3)">
+              <div class="matrix-y-label">Impacto (1→5)</div>
+              <div style="flex:1">
+                <div class="risk-matrix-grid" id="risk-matrix-grid"></div>
+                <div style="text-align:center;margin-top:var(--sp-2);font-size:0.6875rem;color:var(--text-muted)">Probabilidad (1→5) →</div>
+              </div>
+            </div>
+
+            <div class="matrix-legend">
+              <div class="matrix-legend-item"><div class="matrix-legend-dot" style="background:rgba(34,197,94,0.4)"></div>Bajo (1-4)</div>
+              <div class="matrix-legend-item"><div class="matrix-legend-dot" style="background:rgba(234,179,8,0.4)"></div>Medio (5-9)</div>
+              <div class="matrix-legend-item"><div class="matrix-legend-dot" style="background:rgba(249,115,22,0.4)"></div>Alto (10-15)</div>
+              <div class="matrix-legend-item"><div class="matrix-legend-dot" style="background:rgba(239,68,68,0.4)"></div>Crítico (16-25)</div>
+            </div>
+          </div>
+
+          <!-- Compliance summary -->
+          <div class="risk-matrix-container">
+            <div class="section-header">
+              <div>
+                <h2 class="section-title">✅ Cumplimiento</h2>
+                <div class="section-subtitle">ISO 27001 · NIST CSF</div>
+              </div>
+            </div>
+            <div id="compliance-bars"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ──────────────── SECTION: NIST CSF ───────────────────── -->
+      <section id="section-nist" class="dash-section" style="margin-top:var(--sp-8)">
+        <div class="nist-chart-container">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">📐 NIST Cybersecurity Framework 2.0</h2>
+              <div class="section-subtitle">Cobertura estimada por función del CSF</div>
+            </div>
+          </div>
+
+          <div class="nist-bars" id="nist-bars"></div>
+
+          <div style="margin-top:var(--sp-4);padding:var(--sp-4);background:var(--bg-surface);border-radius:var(--r-md);font-size:0.8125rem;color:var(--text-secondary)">
+            <strong style="color:var(--text-primary)">Nota metodológica:</strong>
+            Los porcentajes son estimados por el Agente 3 (Cumplimiento) basados en la presencia/ausencia de controles en el código fuente,
+            no en una auditoría completa de políticas organizacionales (ISO 27001 alcance completo).
+          </div>
+        </div>
+      </section>
+
+      <!-- ────────────── SECTION: Compliance Details ───────────── -->
+      <section id="section-compliance" class="dash-section" style="margin-top:var(--sp-8)">
+        <div class="glass-card">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">✅ Estado de Cumplimiento Normativo</h2>
+              <div class="section-subtitle">ISO/IEC 27001:2022 · ISO 27005 · ISO 31000</div>
+            </div>
+          </div>
+
+          <div class="dashboard-row" style="margin-top:var(--sp-4)">
+            <div>
+              <h4 style="font-size:0.875rem;font-weight:600;margin-bottom:var(--sp-3);color:var(--text-secondary)">ISO 27001 — Controles Detectados</h4>
+              <div id="iso-controls-list" style="font-size:0.875rem;color:var(--text-secondary)">
+                Cargando controles...
+              </div>
+            </div>
+            <div>
+              <h4 style="font-size:0.875rem;font-weight:600;margin-bottom:var(--sp-3);color:var(--text-secondary)">NIST CSF — Estado por Función</h4>
+              <div id="nist-detail-list"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ─────────────── SECTION: Audit Ledger ────────────────── -->
+      <section id="section-ledger" class="dash-section" style="margin-top:var(--sp-8)">
+        <div class="glass-card">
+          <div class="section-header">
+            <div>
+              <h2 class="section-title">📒 Audit Ledger de Tokens</h2>
+              <div class="section-subtitle">Registro de consumo y costo por agente (ISO 27004)</div>
+            </div>
+            <button class="btn btn-secondary btn-sm" id="btn-download-ledger-2" onclick="document.getElementById('btn-download-ledger').click()">⬇ Exportar</button>
+          </div>
+          <table class="ledger-table" style="margin-top:var(--sp-4)">
+            <thead>
+              <tr>
+                <th>Agente</th>
+                <th>Tokens Entrada</th>
+                <th>Tokens Salida</th>
+                <th>Costo USD</th>
+                <th>Timestamp</th>
+              </tr>
+            </thead>
+            <tbody id="ledger-tbody">
+              <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:1rem">Cargando ledger...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ─────────────── SECTION: On-chain ────────────────────── -->
+      <section id="section-chain" class="dash-section" style="margin-top:var(--sp-8)">
+        <div class="liquidation-panel">
+          <div class="liquidation-info">
+            <div class="liquidation-title">⛓️ Liquidación On-Chain — Avalanche</div>
+            <div class="liquidation-meta" style="margin-bottom:var(--sp-3)">
+              Función: <code>completeAudit(auditId, securityScore, ipfsHash)</code>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:var(--sp-2)">
+              <div style="font-size:0.8125rem">
+                <span style="color:var(--text-muted)">TX Hash:</span>
+                <span id="liquidation-tx" style="font-family:var(--font-mono);color:var(--text-secondary);margin-left:var(--sp-2)">—</span>
+              </div>
+              <div style="font-size:0.8125rem">
+                <span style="color:var(--text-muted)">IPFS CID:</span>
+                <a id="ipfs-link" href="#" target="_blank" style="font-family:var(--font-mono);color:var(--accent-secondary);margin-left:var(--sp-2);font-size:0.8125rem">—</a>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:var(--sp-3);align-items:flex-end">
+            <div class="liquidation-status pending" id="liquidation-status">Pendiente</div>
+            <button class="btn btn-primary" id="btn-complete-audit">
+              ⛓️ Ejecutar completeAudit()
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Bottom spacer -->
+      <div style="height:var(--sp-16)"></div>
+    </main>
+  </div>
+
+  <script type="module" src="js/dashboard.js"></script>
+
+  <script>
+    // Compliance detail renderer (runs after dashboard.js populates data)
+    document.addEventListener('DOMContentLoaded', () => {
+      setTimeout(() => {
+        try {
+          const payload = JSON.parse(localStorage.getItem('dashboard_payload') || 'null');
+          if (!payload) return;
+
+          // ISO controls detected from findings
+          const findings = payload.tabla_hallazgos || [];
+          const controls = [...new Set(findings.filter(f => f.control_iso27001).map(f => f.control_iso27001))];
+          const isoList  = document.getElementById('iso-controls-list');
+          if (isoList) {
+            isoList.innerHTML = controls.length
+              ? controls.map(c => `<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border-subtle)"><span style="font-family:var(--font-mono);color:var(--accent-secondary)">${c}</span></div>`).join('')
+              : '<span style="color:var(--text-muted)">Ningún control detectado.</span>';
+          }
+
+          // NIST function detail
+          const nist     = payload.cumplimiento?.nist_csf || {};
+          const nistList = document.getElementById('nist-detail-list');
+          if (nistList) {
+            const funcs = ['identify','protect','detect','respond','recover'];
+            const icons = { identify:'🔍', protect:'🛡️', detect:'📡', respond:'⚡', recover:'🔄' };
+            nistList.innerHTML = funcs.map(fn => {
+              const val = parseInt(nist[fn]) || 0;
+              const cls = val >= 70 ? 'bajo' : val >= 40 ? 'medio' : 'critico';
+              return `
+                <div style="display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-2) 0;border-bottom:1px solid var(--border-subtle)">
+                  <span>${icons[fn]}</span>
+                  <span style="width:80px;font-size:0.875rem;font-weight:600;text-transform:capitalize">${fn}</span>
+                  <div style="flex:1;height:6px;background:var(--bg-overlay);border-radius:999px;overflow:hidden">
+                    <div style="height:100%;width:${val}%;background:var(--sev-${cls === 'bajo' ? 'low' : cls === 'medio' ? 'medium' : 'critical'});transition:width 1s ease;border-radius:999px"></div>
+                  </div>
+                  <span style="font-family:var(--font-mono);font-size:0.8125rem;width:40px;text-align:right">${val}%</span>
+                </div>`;
+            }).join('');
+          }
+
+          // Animate mini ring in sidebar
+          if (payload.kpis?.security_score != null) {
+            const ring = document.getElementById('mini-ring');
+            if (ring) {
+              const score = payload.kpis.security_score;
+              const offset = 100 - score;
+              requestAnimationFrame(() => { ring.style.strokeDashoffset = offset; });
+            }
+          }
+        } catch (e) { console.warn('Compliance detail render error:', e); }
+      }, 500);
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,21 @@
+# ============================================================
+#  .gitignore — AuditAI
+# ============================================================
+
+# Secretos — NUNCA al repo
+.env
+js/env.js
+
+# Node
+node_modules/
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+*.suo
+*.user
